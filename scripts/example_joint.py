@@ -2,9 +2,9 @@
 
 import rospy
 from sensor_msgs.msg import JointState
-from std_msgs.msg import Float64
 
 from move_robot.srv import *
+from panda import RobotJoint
 
 
 def talker():
@@ -23,12 +23,21 @@ def talker():
 
 
 if __name__ == '__main__':
+    rospy.init_node('example_joint', anonymous=True)
+
     rospy.wait_for_service('/start_joint')
-    start_joint_service = rospy.ServiceProxy('/start_cart', StartController)
+    start_joint_service = rospy.ServiceProxy('/start_joint', StartController)
+    stop_controller_service = rospy.ServiceProxy(
+        '/stop_controller', StopController)
     response = start_joint_service(StartControllerRequest())
     rospy.sleep(5)
 
-    try:
-        talker()
-    except rospy.ROSInterruptException:
-        pass
+    robot = RobotJoint()
+    state = JointState()
+    state.name = ['1', '2', '3', '4', '5', '6', '7']
+    state.position = [0, -0.785398163397, 0, -
+                      2.35619449019, 0, 1.57079632679, 0.785398163397]
+    robot.set_target(state)
+
+    rospy.sleep(5)
+    response = stop_controller_service(StopControllerRequest())

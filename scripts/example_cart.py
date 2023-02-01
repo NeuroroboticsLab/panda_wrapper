@@ -4,11 +4,12 @@ import threading
 import curses
 
 import rospy
-from sensor_msgs.msg import JointState
-from std_msgs.msg import Float64
-from panda import *
+from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import TransformStamped
+import tf2_ros
 
 from move_robot.srv import *
+from panda import RobotCart, Gripper
 
 
 def keyboard_input(robot, gripper):
@@ -20,7 +21,7 @@ def keyboard_input(robot, gripper):
         key = curses.initscr().getch()
         # print(key)
         translation_offset = 0.005
-        orientation_offset = 0.005
+        orientation_offset = 0.01
 
         # Translation
         if key == curses.KEY_UP:
@@ -75,68 +76,15 @@ def keyboard_input(robot, gripper):
 
 
 if __name__ == '__main__':
-    rospy.init_node('caller')
-    rospy.wait_for_service('/start_joint')
-    rospy.wait_for_service('/start_cart')
-    rospy.wait_for_service('/start_velocity')
-    rospy.wait_for_service('/stop_controller')
-    print("Services found")
+    rospy.init_node('robot_cart')
 
-    # start joint controller
-    start_vel_service = rospy.ServiceProxy('/start_velocity', StartController)
-    response = start_vel_service(StartControllerRequest())
-    rospy.sleep(1)
+    rospy.wait_for_service('/start_force')
+    start_cart_service = rospy.ServiceProxy('/start_cart', StartController)
+    response = start_cart_service(StartControllerRequest())
+    rospy.sleep(5)
+
+    robot = RobotCart()
     gripper = Gripper()
-    robotJoint = RobotJoint()
+    threading.Thread(target=keyboard_input, args=(robot, gripper, )).start()
 
-    print("move to home position")
-    [joints, tcp] = load_state(path="/home/sascha/catkin_ws/data/home.json")
-    robotJoint.set_target(joints)
-    rospy.sleep(1)  # 3
-    gripper.homing()
-
-    print("move to grasp position")
-    [joints, tcp] = load_state(path="/home/sascha/catkin_ws/data/grasp.json")
-    robotJoint.set_target(joints)
-    rospy.sleep(6)
-    robotJoint.stop()
-    rospy.sleep(0.2)
-    # gripper.grasp(0.02, 0.1, 50)
-    gripper.grasp(0.0075, 0.1, 50)
-    rospy.sleep(0.1)
-
-    print("move to drink position")
-    [joints_drink, tcp] = load_state(
-        path="/home/sascha/catkin_ws/data/drink.json")
-
-    [joints_drink_2, tcp] = load_state(
-        path="/home/sascha/catkin_ws/data/drink_2.json")
-
-    robotJoint.set_target(joints_drink)
-    rospy.sleep(4)
-    robotJoint.set_target(joints_drink_2)
-    rospy.sleep(2.5)
-    robotJoint.set_target(joints_drink)
-    rospy.sleep(2.5)
-    gripper.homing()
-    robotJoint.stop()
-    rospy.sleep(1)
-
-    print("stop joint controller")
-    stop_controller_service = rospy.ServiceProxy(
-        '/stop_controller', StopController)
-    rospy.sleep(3)
-
-    # # let the robot drink
-    # # start cartesian controller
-    # start_cart_service = rospy.ServiceProxy('/start_cart', StartController)
-    # response = start_cart_service(StartControllerRequest())
-    # rospy.sleep(5)
-    # robot = RobotCart()
-    # print("Robot initialized")
-
-    # # let the user control the robot with the keyboard
-    # keyThread = threading.Thread(
-    #     target=keyboard_input, args=(robot, gripper,)).start()
-
-    # rospy.spin()
+    rospy.spin()

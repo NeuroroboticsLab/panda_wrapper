@@ -133,12 +133,12 @@ include_directories(
 # # Mark executable scripts (Python etc.) for installation
 # # in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
-  scripts/main.py
-  scripts/view_state.py
-  scripts/move_cart.py
-  scripts/move_joint.py
-  scripts/move_gripper.py
   scripts/controller_service.py
+  scripts/example_cart.py
+  scripts/example_joint.py
+  scripts/example_gripper.py
+  scripts/example_viewer.py
+  scripts/main.py
   scripts/panda.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
