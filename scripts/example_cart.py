@@ -80,6 +80,8 @@ if __name__ == '__main__':
 
     rospy.wait_for_service('/start_force')
     start_cart_service = rospy.ServiceProxy('/start_cart', StartController)
+    stop_controller_service = rospy.ServiceProxy(
+        '/stop_controller', StopController)
     response = start_cart_service(StartControllerRequest())
     rospy.sleep(5)
 
@@ -88,3 +90,4 @@ if __name__ == '__main__':
     threading.Thread(target=keyboard_input, args=(robot, gripper, )).start()
 
     rospy.spin()
+    print(stop_controller_service(StopControllerRequest()))

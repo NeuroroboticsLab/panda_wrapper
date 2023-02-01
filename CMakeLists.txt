@@ -135,8 +135,9 @@ include_directories(
 catkin_install_python(PROGRAMS
   scripts/controller_service.py
   scripts/example_cart.py
-  scripts/example_joint.py
   scripts/example_gripper.py
+  scripts/example_position.py
+  scripts/example_velocity.py
   scripts/example_viewer.py
   scripts/main.py
   scripts/panda.py

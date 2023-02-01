@@ -23,13 +23,14 @@ def talker():
 
 
 if __name__ == '__main__':
-    rospy.init_node('example_joint', anonymous=True)
+    rospy.init_node('example_velocity', anonymous=True)
 
-    rospy.wait_for_service('/start_joint')
-    start_joint_service = rospy.ServiceProxy('/start_joint', StartController)
+    rospy.wait_for_service('/start_velocity')
+    start_velocity_service = rospy.ServiceProxy(
+        '/start_position', StartController)
     stop_controller_service = rospy.ServiceProxy(
         '/stop_controller', StopController)
-    response = start_joint_service(StartControllerRequest())
+    print(start_velocity_service(StartControllerRequest()))
     rospy.sleep(5)
 
     robot = RobotJoint()
@@ -40,4 +41,4 @@ if __name__ == '__main__':
     robot.set_target(state)
 
     rospy.sleep(5)
-    response = stop_controller_service(StopControllerRequest())
+    print(stop_controller_service(StopControllerRequest()))

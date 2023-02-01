@@ -12,9 +12,9 @@ from move_robot.srv import *
 class Type(Enum):
     NONE = "none"
     CARTESIAN = "cartesian"
-    JOINT = "joint"
-    FORCE = "force"
+    POSITION = "position"
     VELOCITY = "velocity"
+    FORCE = "force"
     STOP = "stop"
 
     def __str__(self):
@@ -39,7 +39,7 @@ class ControllerNode:
         if type == Type.CARTESIAN:
             cli_args = ['/home/sascha/catkin_ws/src/franka_ros/franka_example_controllers/launch/cartesian_impedance_controller.launch',
                         'robot_ip:=172.16.0.2', "load_gripper:=true", "robot:=fr3"]
-        elif type == Type.JOINT:
+        elif type == Type.POSITION:
             cli_args = ['/home/sascha/catkin_ws/src/franka_ros/franka_example_controllers/launch/joint_position_controller.launch',
                         'robot_ip:=172.16.0.2', "load_gripper:=true", "robot:=fr3"]
         elif type == Type.FORCE:
@@ -59,8 +59,8 @@ class ControllerNode:
         rospy.sleep(2)
         if type == Type.CARTESIAN:
             rospy.loginfo("started cartesian controller")
-        elif type == Type.JOINT:
-            rospy.loginfo("started joint controller")
+        elif type == Type.POSITION:
+            rospy.loginfo("started position controller")
         elif type == Type.FORCE:
             rospy.loginfo("started force controller")
         elif type == Type.VELOCITY:
@@ -82,10 +82,10 @@ def start_cart(req):
     return StartControllerResponse(success=True)
 
 
-def start_joint(req):
+def start_position(req):
     global type
-    rospy.loginfo("starting joint controller")
-    type = Type.JOINT
+    rospy.loginfo("starting position controller")
+    type = Type.POSITION
     return StartControllerResponse(success=True)
 
 
@@ -116,8 +116,8 @@ if __name__ == '__main__':
 
     start_cart_service = rospy.Service(
         'start_cart', StartController, start_cart)
-    start_joint_service = rospy.Service(
-        'start_joint', StartController, start_joint)
+    start_position_service = rospy.Service(
+        'start_position', StartController, start_position)
     start_force_service = rospy.Service(
         'start_force', StartController, start_force)
     start_velocity_service = rospy.Service(
@@ -125,20 +125,18 @@ if __name__ == '__main__':
     stop_service = rospy.Service(
         'stop_controller', StopController, stop_controller)
 
-    node = ControllerNode()
-    rate = rospy.Rate(20)  # 2hz
+    controllerNode = ControllerNode()
+    rate = rospy.Rate(10)
     while not rospy.is_shutdown():
         # print(type)
-        if type == Type.CARTESIAN or type == Type.JOINT or type == Type.FORCE or type == Type.VELOCITY:
+        if type == Type.CARTESIAN or type == Type.POSITION or type == Type.FORCE or type == Type.VELOCITY:
             print(type)
-            node.start(type)
+            controllerNode.start(type)
             type = Type.NONE
         elif type == Type.NONE:
             rate.sleep()
             continue
         else:
             print(type)
-            node.stop()
+            controllerNode.stop()
             type = Type.NONE
-
-    rospy.spin()
