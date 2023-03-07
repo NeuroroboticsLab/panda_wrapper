@@ -10,6 +10,7 @@ from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import TransformStamped
 from sensor_msgs.msg import JointState
 from franka_gripper.msg import *
+from franka_msgs.msg import FrankaState
 import tf2_ros
 import franka_gripper.msg
 import franka_gripper
@@ -127,9 +128,21 @@ class StateViewer:
     def __init__(self, rate=10, print_data=False):
         self.rate = rospy.Rate(rate)
         self.print_data = print_data
-        self.joint_state = JointState()
+        self.joints = []
+        # Measured link-side joint torque sensor signals
+        self.tau_J = []
+        # Desired link-side joint torque sensor signals without gravity.
+        self.tau_J_d = []
+        # External torque, filtered.
+        self.tau_ext_hat_filtered = []
+        # Estimated external wrench (force, torque) acting on stiffness frame, expressed relative to the base frame.
+        self.O_F_ext_hat_K = []
+        # Estimated external wrench (force, torque) acting on stiffness frame, expressed relative to the stiffness frame.
+        self.K_F_ext_hat_K = []
+        self.tcp = TransformStamped()
+
         self.sub = rospy.Subscriber(
-            "/joint_states", JointState, self.joint_callback)
+            "/franka_state_controller/franka_states", FrankaState, self.joint_callback)
 
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
@@ -138,8 +151,14 @@ class StateViewer:
             'fr3_link0', 'fr3_EE', rospy.Time())
         threading.Thread(target=self.tcp_thread).start()
 
-    def joint_callback(self, joint_data):
-        self.joint_state = joint_data
+    def joint_callback(self, franka_state):
+        # print("Franka State: ", franka_state)
+        self.joints = franka_state.q
+        self.tau_J = franka_state.tau_J
+        self.tau_J_d = franka_state.tau_J_d
+        self.tau_ext_hat_filtered = franka_state.tau_ext_hat_filtered
+        self.O_F_ext_hat_K = franka_state.O_F_ext_hat_K
+        self.K_F_ext_hat_K = franka_state.K_F_ext_hat_K
 
     def tcp_thread(self):
         while not rospy.is_shutdown():
@@ -150,14 +169,22 @@ class StateViewer:
             self.rate.sleep()
 
     def get_state(self):
-        return [self.joint_state, self.tcp]
+        return [self.joints, self.tcp]
 
     def print_state(self):
         print("Translation: ", self.tcp.transform.translation)
-
         print("Rotation: ", self.tcp.transform.rotation)
-        print("Joint State: ", self.joint_state.position)
-        print("\n \n \n")
+
+        print("Joint Values: ", self.joints)
+        print("Measured link-side joint torque sensor signals: ", self.tau_J)
+        print(
+            "Desired link-side joint torque sensor signals without gravity: ", self.tau_J_d)
+        print("Ext torque, filtered: ", self.tau_ext_hat_filtered)
+        print("Estimated ext wrench on stiffness frame, to base frame: ",
+              self.O_F_ext_hat_K)
+        print("Estimated ext wrench on stiffness frame, to stiffness frame: ",
+              self.K_F_ext_hat_K)
+        print("\n \n")
 
     def save_state(self, path="/home/sascha/catkin_ws/data/robot_data.json"):
         translation = (self.tcp.transform.translation.x, self.tcp.transform.translation.y,
@@ -167,8 +194,7 @@ class StateViewer:
 
         json_dict = {'translation': translation,
                      'rotation': quat,
-                     'joint_states': self.joint_state.position,
-                     'joint_names': self.joint_state.name,
+                     'joints': self.joints,
                      'info': 'Translation and Rotation of the TCP and the joint state of the robot. Rotation as x,y,z,w'}
         json_object = json.dumps(json_dict, indent=4, sort_keys=True)
         with open(path, "w") as outfile:
@@ -179,9 +205,7 @@ def load_state(path, print_data=False):
     with open(path) as json_file:
         data = json.load(json_file)
 
-        joints = JointState()
-        joints.position = data['joint_states']
-        joints.name = data['joint_names']
+        joints = data['joints']
 
         tcp = tf2_ros.TransformStamped()
         translation = data['translation']
@@ -190,7 +214,6 @@ def load_state(path, print_data=False):
         tcp.transform.rotation = quat
 
         if print_data:
-            print("joint Positions: ", joints.position)
-            print("joint Names: ", joints.name)
+            print("joint Positions: ", joints)
             print("tcp: ", tcp)
         return joints, tcp
