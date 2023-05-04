@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>move_robot</name>
+  <name>panda_wrapper</name>
   <version>0.0.0</version>
   <description>The move_robot package</description>
 

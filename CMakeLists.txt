@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(move_robot)
+project(panda_wrapper)
 
 # # Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -133,14 +133,15 @@ include_directories(
 # # Mark executable scripts (Python etc.) for installation
 # # in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
-  scripts/controller_service.py
-  scripts/example_cart.py
-  scripts/example_gripper.py
-  scripts/example_position.py
-  scripts/example_velocity.py
-  scripts/example_viewer.py
-  scripts/main.py
-  scripts/panda.py
+  scripts/panda_wrapper/controller_service.py
+  scripts/panda_wrapper/example_cart.py
+  scripts/panda_wrapper/example_gripper.py
+  scripts/panda_wrapper/example_position.py
+  scripts/panda_wrapper/example_velocity.py
+  scripts/panda_wrapper/example_viewer.py
+  scripts/panda_wrapper/main.py
+  scripts/panda_wrapper/panda.py
+  scripts/panda_wrapper/test.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
