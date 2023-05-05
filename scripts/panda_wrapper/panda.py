@@ -5,6 +5,9 @@ import threading
 import actionlib
 import json
 import rospy
+import cv2
+from pytransform3d import transformations as pt
+import numpy as np
 
 from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import TransformStamped
@@ -12,6 +15,8 @@ from sensor_msgs.msg import JointState
 from franka_gripper.msg import *
 from franka_msgs.msg import FrankaState
 import tf2_ros
+import tf2_py as tf2
+
 import franka_gripper.msg
 import franka_gripper
 
@@ -139,7 +144,8 @@ class StateViewer:
         self.O_F_ext_hat_K = []
         # Estimated external wrench (force, torque) acting on stiffness frame, expressed relative to the stiffness frame.
         self.K_F_ext_hat_K = []
-        self.tcp = TransformStamped()
+        self.base_to_ee = TransformStamped()
+        self.ee_to_base = TransformStamped()
 
         self.sub = rospy.Subscriber(
             "/franka_state_controller/franka_states", FrankaState, self.joint_callback)
@@ -147,8 +153,10 @@ class StateViewer:
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
         rospy.sleep(0.1)
-        self.tcp = self.tf_buffer.lookup_transform(
+        self.base_to_ee = self.tf_buffer.lookup_transform(
             'fr3_link0', 'fr3_EE', rospy.Time())
+        self.ee_to_base = self.tf_buffer.lookup_transform(
+            'fr3_EE', 'fr3_link0', rospy.Time())
         threading.Thread(target=self.tcp_thread).start()
 
     def joint_callback(self, franka_state):
@@ -162,8 +170,10 @@ class StateViewer:
 
     def tcp_thread(self):
         while not rospy.is_shutdown():
-            self.tcp = self.tf_buffer.lookup_transform(
+            self.base_to_ee = self.tf_buffer.lookup_transform(
                 'fr3_link0', 'fr3_EE', rospy.Time())
+            self.ee_to_base = self.tf_buffer.lookup_transform(
+                'fr3_EE', 'fr3_link0', rospy.Time())
             if self.print_data:
                 self.print_state()
             self.rate.sleep()
@@ -172,8 +182,8 @@ class StateViewer:
         return [self.joints, self.tcp]
 
     def print_state(self):
-        print("Translation: ", self.tcp.transform.translation)
-        print("Rotation: ", self.tcp.transform.rotation)
+        print("Translation: ", self.base_to_ee.transform.translation)
+        print("Rotation: ", self.base_to_ee.transform.rotation)
 
         print("Joint Values: ", self.joints)
         print("Measured link-side joint torque sensor signals: ", self.tau_J)
@@ -184,13 +194,12 @@ class StateViewer:
               self.O_F_ext_hat_K)
         print("Estimated ext wrench on stiffness frame, to stiffness frame: ",
               self.K_F_ext_hat_K)
-        print("\n \n")
+        print("\n")
 
     def save_state(self, path="/home/sascha/catkin_ws/data/robot_data.json"):
-        translation = (self.tcp.transform.translation.x, self.tcp.transform.translation.y,
-                       self.tcp.transform.translation.z)
-        quat = (self.tcp.transform.rotation.x, self.tcp.transform.rotation.y,
-                self.tcp.transform.rotation.z, self.tcp.transform.rotation.w)
+        tcp = self.base_to_ee.transform
+        translation = (tcp.translation.x, tcp.translation.y, tcp.translation.z)
+        quat = (tcp.rotation.x, tcp.rotation.y, tcp.rotation.z, tcp.rotation.w)
 
         json_dict = {'translation': translation,
                      'rotation': quat,
@@ -199,6 +208,20 @@ class StateViewer:
         json_object = json.dumps(json_dict, indent=4, sort_keys=True)
         with open(path, "w") as outfile:
             outfile.write(json_object)
+
+    def save_state_cv(self, path="/home/sascha/catkin_ws/data/transform.xml"):
+        ee_to_base = self.ee_to_base.transform
+        base_to_ee = self.base_to_ee.transform
+
+        b_to_e = pt.transform_from_pq((base_to_ee.translation.x, base_to_ee.translation.y, base_to_ee.translation.z,
+                                      base_to_ee.rotation.w, base_to_ee.rotation.x, base_to_ee.rotation.y, base_to_ee.rotation.z))
+        e_to_b = pt.transform_from_pq((ee_to_base.translation.x, ee_to_base.translation.y, ee_to_base.translation.z,
+                                      ee_to_base.rotation.w, ee_to_base.rotation.x, ee_to_base.rotation.y, ee_to_base.rotation.z))
+
+        cv_file = cv2.FileStorage(path, cv2.FILE_STORAGE_WRITE)
+        cv_file.write("base_to_ee", b_to_e)
+        cv_file.write("ee_to_base", e_to_b)
+        cv_file.release()
 
 
 def load_state(path, print_data=False):

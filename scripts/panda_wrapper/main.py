@@ -14,18 +14,15 @@ if __name__ == '__main__':
     rospy.wait_for_service('/stop_controller')
     print("Services found")
 
-    [home_j, t] = load_state(path="/home/sascha/catkin_ws/data/home.json")
-    [push_inter_j, t] = load_state(
-        path="/home/sascha/catkin_ws/data/intermediate_push.json")
-    [push_j, t] = load_state(path="/home/sascha/catkin_ws/data/push.json")
-    [cup_inter_1_j, t] = load_state(
-        path="/home/sascha/catkin_ws/data/intermediate_cup_1.json")
-    [cup_inter_2_j, t] = load_state(
-        path="/home/sascha/catkin_ws/data/intermediate_cup_2.json")
-    [cup_j, t] = load_state(path="/home/sascha/catkin_ws/data/grasp_cup.json")
-    [drink_j, t] = load_state(path="/home/sascha/catkin_ws/data/drink.json")
-    [drink_2_j, t] = load_state(
-        path="/home/sascha/catkin_ws/data/drink_2.json")
+    pose_folder = "/home/sascha/catkin_ws/data/poses/"
+    [home_j, t] = load_state(path=pose_folder+"home.json")
+    [push_inter_j, t] = load_state(path=pose_folder+"intermediate_push.json")
+    [push_j, t] = load_state(path=pose_folder+"push.json")
+    [cup_inter_1_j, t] = load_state(path=pose_folder+"intermediate_cup_1.json")
+    [cup_inter_2_j, t] = load_state(path=pose_folder+"intermediate_cup_2.json")
+    [cup_j, t] = load_state(path=pose_folder+"grasp_cup.json")
+    [drink_j, t] = load_state(path=pose_folder+"drink.json")
+    [drink_2_j, t] = load_state(path=pose_folder+"drink_2.json")
 
     # start joint controller
     start_vel_service = rospy.ServiceProxy('/start_velocity', StartController)
@@ -69,7 +66,7 @@ if __name__ == '__main__':
     rospy.sleep(0.1)
 
     # print("move to grasp position")
-    # [joints, tcp] = load_state(path="/home/sascha/catkin_ws/data/grasp.json")
+    # [joints, tcp] = load_state(path=pose_folder+"grasp.json")
     # robotJoint.set_target(joints)
     # rospy.sleep(6)
     # robotJoint.stop()

@@ -43,7 +43,7 @@ class ControllerNode:
             cli_args = ['/home/sascha/catkin_ws/src/franka_ros/franka_example_controllers/launch/joint_position_controller.launch',
                         'robot_ip:=172.16.0.2', "load_gripper:=true", "robot:=fr3"]
         elif type == Type.FORCE:
-            cli_args = ['/home/sascha/catkin_ws/src/franka_ros/franka_example_controllers/launch/force_example_controller.launch',
+            cli_args = ['/home/sascha/catkin_ws/src/franka_ros/franka_example_controllers/launch/force_controller.launch',
                         'robot_ip:=172.16.0.2', "load_gripper:=true", "robot:=fr3"]
         elif type == Type.VELOCITY:
             cli_args = ['/home/sascha/catkin_ws/src/franka_ros/franka_example_controllers/launch/joint_velocity_controller.launch',

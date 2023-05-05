@@ -141,7 +141,7 @@ catkin_install_python(PROGRAMS
   scripts/panda_wrapper/example_viewer.py
   scripts/panda_wrapper/main.py
   scripts/panda_wrapper/panda.py
-  scripts/panda_wrapper/test.py
+  scripts/panda_wrapper/viewer.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
