@@ -8,7 +8,7 @@ from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import TransformStamped
 import tf2_ros
 
-from move_robot.srv import *
+from panda_wrapper.srv import *
 from panda import RobotCart, Gripper
 
 

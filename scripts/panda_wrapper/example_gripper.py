@@ -2,7 +2,7 @@
 
 import rospy
 
-from move_robot.srv import *
+from panda_wrapper.srv import *
 from panda import Gripper
 
 

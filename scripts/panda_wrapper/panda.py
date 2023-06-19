@@ -8,19 +8,18 @@ import rospy
 import cv2
 from pytransform3d import transformations as pt
 import numpy as np
+from scipy.linalg import sqrtm, inv
 
 from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import TransformStamped
 from sensor_msgs.msg import JointState
 from franka_gripper.msg import *
 from franka_msgs.msg import FrankaState
-import tf2_ros
-import tf2_py as tf2
 
 import franka_gripper.msg
 import franka_gripper
 
-from move_robot.srv import *
+from panda_wrapper.srv import *
 
 
 def transform_to_pose(trans):
@@ -29,6 +28,10 @@ def transform_to_pose(trans):
     pose.pose.orientation = trans.transform.rotation
     pose.header.stamp = trans.header.stamp
     return pose
+
+
+def sym(w):
+    return w.dot(inv(sqrtm(w.T.dot(w))))
 
 
 class RobotCart:
@@ -144,20 +147,11 @@ class StateViewer:
         self.O_F_ext_hat_K = []
         # Estimated external wrench (force, torque) acting on stiffness frame, expressed relative to the stiffness frame.
         self.K_F_ext_hat_K = []
-        self.base_to_ee = TransformStamped()
-        self.ee_to_base = TransformStamped()
+        # Current robot end-effector pose expressed relative to the base frame.
+        self.base_to_ee = []
 
         self.sub = rospy.Subscriber(
             "/franka_state_controller/franka_states", FrankaState, self.joint_callback)
-
-        self.tf_buffer = tf2_ros.Buffer()
-        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
-        rospy.sleep(0.1)
-        self.base_to_ee = self.tf_buffer.lookup_transform(
-            'fr3_link0', 'fr3_EE', rospy.Time())
-        self.ee_to_base = self.tf_buffer.lookup_transform(
-            'fr3_EE', 'fr3_link0', rospy.Time())
-        threading.Thread(target=self.tcp_thread).start()
 
     def joint_callback(self, franka_state):
         # print("Franka State: ", franka_state)
@@ -168,15 +162,9 @@ class StateViewer:
         self.O_F_ext_hat_K = franka_state.O_F_ext_hat_K
         self.K_F_ext_hat_K = franka_state.K_F_ext_hat_K
 
-    def tcp_thread(self):
-        while not rospy.is_shutdown():
-            self.base_to_ee = self.tf_buffer.lookup_transform(
-                'fr3_link0', 'fr3_EE', rospy.Time())
-            self.ee_to_base = self.tf_buffer.lookup_transform(
-                'fr3_EE', 'fr3_link0', rospy.Time())
-            if self.print_data:
-                self.print_state()
-            self.rate.sleep()
+        self.base_to_ee = np.reshape(franka_state.O_T_EE, (4, 4), order='F')
+        self.base_to_ee[:3, :3] = np.linalg.qr(
+            self.base_to_ee[:3, :3], mode='complete')[0]
 
     def get_state(self):
         return [self.joints, self.tcp]
@@ -210,17 +198,9 @@ class StateViewer:
             outfile.write(json_object)
 
     def save_state_cv(self, path="/home/sascha/catkin_ws/data/transform.xml"):
-        ee_to_base = self.ee_to_base.transform
-        base_to_ee = self.base_to_ee.transform
-
-        b_to_e = pt.transform_from_pq((base_to_ee.translation.x, base_to_ee.translation.y, base_to_ee.translation.z,
-                                      base_to_ee.rotation.w, base_to_ee.rotation.x, base_to_ee.rotation.y, base_to_ee.rotation.z))
-        e_to_b = pt.transform_from_pq((ee_to_base.translation.x, ee_to_base.translation.y, ee_to_base.translation.z,
-                                      ee_to_base.rotation.w, ee_to_base.rotation.x, ee_to_base.rotation.y, ee_to_base.rotation.z))
-
         cv_file = cv2.FileStorage(path, cv2.FILE_STORAGE_WRITE)
-        cv_file.write("base_to_ee", b_to_e)
-        cv_file.write("ee_to_base", e_to_b)
+        cv_file.write("base_to_ee", self.base_to_ee)
+        cv_file.write("ee_to_base", pt.invert_transform(self.base_to_ee))
         cv_file.release()
 
 

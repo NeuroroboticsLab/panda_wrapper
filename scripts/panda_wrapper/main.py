@@ -5,7 +5,7 @@ from sensor_msgs.msg import JointState
 from std_msgs.msg import Float64
 
 from panda import *
-from move_robot.srv import *
+from panda_wrapper.srv import *
 
 
 if __name__ == '__main__':

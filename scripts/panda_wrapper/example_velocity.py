@@ -3,7 +3,7 @@
 import rospy
 from sensor_msgs.msg import JointState
 
-from move_robot.srv import *
+from panda_wrapper.srv import *
 from panda import RobotJoint
 
 

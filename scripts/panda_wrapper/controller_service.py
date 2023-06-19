@@ -6,7 +6,7 @@ from enum import Enum
 import rospy
 import roslaunch
 
-from move_robot.srv import *
+from panda_wrapper.srv import *
 
 
 class Type(Enum):
