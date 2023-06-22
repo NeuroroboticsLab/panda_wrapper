@@ -6,8 +6,6 @@ import curses
 import rospy
 from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import TransformStamped
-import tf2_ros
-
 from panda_wrapper.srv import *
 from panda import RobotCart, Gripper
 
@@ -27,6 +25,8 @@ def keyboard_input(robot, gripper):
         if key == curses.KEY_UP:
             robot.pose.pose.position.z += translation_offset
             print("Up")
+            # robot.move_tcp_delta([0.001, 0.001, 0.001], [0.0, 0.0, 5])
+            # robot.move_tcp([0.45, 0, 0.5])
         elif key == curses.KEY_DOWN:
             robot.pose.pose.position.z -= translation_offset
             print("Down")
@@ -78,16 +78,8 @@ def keyboard_input(robot, gripper):
 if __name__ == '__main__':
     rospy.init_node('robot_cart')
 
-    rospy.wait_for_service('/start_force')
-    start_cart_service = rospy.ServiceProxy('/start_cart', StartController)
-    stop_controller_service = rospy.ServiceProxy(
-        '/stop_controller', StopController)
-    response = start_cart_service(StartControllerRequest())
-    rospy.sleep(5)
-
     robot = RobotCart()
     gripper = Gripper()
     threading.Thread(target=keyboard_input, args=(robot, gripper, )).start()
 
     rospy.spin()
-    print(stop_controller_service(StopControllerRequest()))

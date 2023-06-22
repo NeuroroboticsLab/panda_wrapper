@@ -8,7 +8,8 @@ import rospy
 import cv2
 from pytransform3d import transformations as pt
 import numpy as np
-from scipy.linalg import sqrtm, inv
+from scipy.spatial.transform import Rotation as R
+
 
 from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import TransformStamped
@@ -22,32 +23,75 @@ import franka_gripper
 from panda_wrapper.srv import *
 
 
-def transform_to_pose(trans):
+def transform_to_pose(transform):
     pose = PoseStamped()
-    pose.pose.position = trans.transform.translation
-    pose.pose.orientation = trans.transform.rotation
-    pose.header.stamp = trans.header.stamp
+    pose.pose.position.x = transform[0, 3]
+    pose.pose.position.y = transform[1, 3]
+    pose.pose.position.z = transform[2, 3]
+    r = R.from_matrix(transform[:3, :3])
+    quat = r.as_quat()
+    pose.pose.orientation.x = quat[2]
+    pose.pose.orientation.y = -quat[3]
+    pose.pose.orientation.z = -quat[0]
+    pose.pose.orientation.w = quat[1]
     return pose
-
-
-def sym(w):
-    return w.dot(inv(sqrtm(w.T.dot(w))))
 
 
 class RobotCart:
     def __init__(self, rate=10):
         self.rate = rospy.Rate(rate)
-        self.pose = PoseStamped()
-        self.tf_buffer = tf2_ros.Buffer()
-
-        listener = tf2_ros.TransformListener(self.tf_buffer)
-        rospy.sleep(1)
-
-        self.start_trans = self.tf_buffer.lookup_transform(
-            'fr3_link0', 'fr3_EE', rospy.Time())
-        self.pose = transform_to_pose(self.start_trans)
+        self.pose = None
 
         threading.Thread(target=self.sender).start()
+        # Current robot end-effector pose expressed relative to the base frame.
+        self.O_T_EE = []
+
+        self.sub = rospy.Subscriber(
+            "/franka_state_controller/franka_states", FrankaState, self.joint_callback)
+
+    def joint_callback(self, franka_state):
+        # print("Franka State: ", franka_state)
+        self.O_T_EE = np.reshape(franka_state.O_T_EE, (4, 4), order='F')
+        self.O_T_EE[:3, :3] = np.linalg.qr(
+            self.O_T_EE[:3, :3], mode='complete')[0]
+
+        self.pose = transform_to_pose(self.O_T_EE)
+        print(self.pose)
+        self.sub.unregister()
+
+    def move_tcp_delta(self, delta_pos, delta_ori=[0, 0, 0], degrees=True):
+        self.pose.pose.position.x += delta_pos[0]
+        self.pose.pose.position.y += delta_pos[1]
+        self.pose.pose.position.z += delta_pos[2]
+
+        if (delta_ori[0] == 0 and delta_ori[1] == 0 and delta_ori[2] == 0):
+            return  # do not chage orientation
+
+        r_delta = R.from_euler('xyz', delta_ori, degrees)
+        r = R.from_quat([self.pose.pose.orientation.x, self.pose.pose.orientation.y,
+                         self.pose.pose.orientation.z, self.pose.pose.orientation.w])
+        quat_old = r.as_quat()
+
+        r_new = r * r_delta
+        quat_new = r_new.as_quat()
+        self.pose.pose.orientation.x = quat_new[0]
+        self.pose.pose.orientation.y = quat_new[1]
+        self.pose.pose.orientation.z = quat_new[2]
+        self.pose.pose.orientation.w = quat_new[3]
+
+    def move_tcp(self, pos, ori=None, degrees=True):
+        self.pose.pose.position.x = pos[0]
+        self.pose.pose.position.y = pos[1]
+        self.pose.pose.position.z = pos[2]
+
+        if ori is None:
+            return
+
+        q = R.from_euler('xyz', ori, degrees).as_quat()
+        self.pose.pose.orientation.x = q[0]
+        self.pose.pose.orientation.y = q[1]
+        self.pose.pose.orientation.z = q[2]
+        self.pose.pose.orientation.w = q[3]
 
     def sender(self):
         pub = rospy.Publisher(
@@ -55,7 +99,9 @@ class RobotCart:
 
         while not rospy.is_shutdown():
             # print(pose)
-            pub.publish(self.pose)
+            if self.pose is not None:
+                pub.publish(self.pose)
+                # print("init")
             # rospy.loginfo(self.pose)
             self.rate.sleep()
 
