@@ -230,27 +230,27 @@ class StateViewer:
               self.K_F_ext_hat_K)
         print("\n")
 
-    def save_state(self, path="/home/sascha/catkin_ws/data/robot_data.json"):
-        tcp = self.base_to_ee.transform
-        translation = (tcp.translation.x, tcp.translation.y, tcp.translation.z)
-        quat = (tcp.rotation.x, tcp.rotation.y, tcp.rotation.z, tcp.rotation.w)
-
-        json_dict = {'translation': translation,
-                     'rotation': quat,
-                     'joints': self.joints,
-                     'info': 'Translation and Rotation of the TCP and the joint state of the robot. Rotation as x,y,z,w'}
-        json_object = json.dumps(json_dict, indent=4, sort_keys=True)
-        with open(path, "w") as outfile:
-            outfile.write(json_object)
-
-    def save_state_cv(self, path="/home/sascha/catkin_ws/data/transform.xml"):
+    def save_state(self, path="/home/sascha/catkin_ws/data/transform.xml"):
         cv_file = cv2.FileStorage(path, cv2.FILE_STORAGE_WRITE)
         cv_file.write("base_to_ee", self.base_to_ee)
         cv_file.write("ee_to_base", pt.invert_transform(self.base_to_ee))
+        cv_file.write("joints", self.joints)
+
         cv_file.release()
 
 
 def load_state(path, print_data=False):
+    cv_file = cv2.FileStorage(path, cv2.FILE_STORAGE_READ)
+    base_to_ee = cv_file.getNode("base_to_ee").mat()
+    ee_to_base = cv_file.getNode("ee_to_base").mat()
+    joints = cv_file.getNode("joints").mat()
+
+    if print_data:
+        print("base_to_ee: \n", base_to_ee)
+        print("ee_to_base: \n", ee_to_base)
+
+    return base_to_ee, ee_to_base, joints
+
     with open(path) as json_file:
         data = json.load(json_file)
 

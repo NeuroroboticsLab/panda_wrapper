@@ -7,7 +7,7 @@ import rospy
 from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import TransformStamped
 from panda_wrapper.srv import *
-from panda import RobotCart, Gripper
+from panda import RobotCart, Gripper, Viewer
 
 
 def keyboard_input(robot, gripper):
@@ -80,6 +80,7 @@ if __name__ == '__main__':
 
     robot = RobotCart()
     gripper = Gripper()
+    viewer = Viewer()
     threading.Thread(target=keyboard_input, args=(robot, gripper, )).start()
 
     rospy.spin()

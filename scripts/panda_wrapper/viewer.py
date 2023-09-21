@@ -12,11 +12,12 @@ import pyrealsense2 as rs
 import franka_msgs.srv as frankaMsg
 
 
-SHOW_MESH = False
+SAVE_POINTCLOUD = False
 
 
 class Viewer:
     def __init__(self):
+        self.lock = threading.Lock()
         self.viewer = StateViewer()
         self.path = "/home/sascha/catkin_ws/data/"
         self.count = 0
@@ -43,7 +44,7 @@ class Viewer:
                 found_rgb = True
                 break
         if not found_rgb:
-            print("The demo requires Depth camera with Color sensor")
+            print("The app requires Depth camera with Color sensor")
             exit(0)
 
         config.enable_stream(rs.stream.color, 1280, 720, rs.format.rgb8, 30)
@@ -77,12 +78,15 @@ class Viewer:
 
     def save(self):
         file = self.path + str(self.count)
-        self.viewer.save_state_cv(path=file + '.xml')
-        cv.imwrite(file + '.png', self.color_image)
+        self.viewer.save_state(path=file + '.xml')
 
-        self.pc.map_to(self.color_frame)
-        points = self.pc.calculate(self.depth_frame)
-        points.export_to_ply(file + '.ply', self.color_frame)
+        self.lock.acquire()
+        cv.imwrite(file + '.png', self.color_image)
+        if SAVE_POINTCLOUD:
+            self.pc.map_to(self.color_frame)
+            points = self.pc.calculate(self.depth_frame)
+            points.export_to_ply(file + '.ply', self.color_frame)
+        self.lock.release()
 
         self.count += 1
         self.save_count()
@@ -90,15 +94,23 @@ class Viewer:
     def rs_thread(self):
         while self.exit_thread is False:
             frames = self.pipeline.wait_for_frames()
-            depth_frame = frames.get_depth_frame()
-            depth_frame = self.decimate.process(depth_frame)
-            depth_frame = self.spatial_filter.process(depth_frame)
-            self.depth_frame = self.temporal_filter.process(depth_frame)
-            self.color_frame = frames.get_color_frame()
+            if SAVE_POINTCLOUD:
+                depth_frame = frames.get_depth_frame()
+                depth_frame = self.decimate.process(depth_frame)
+                depth_frame = self.spatial_filter.process(depth_frame)
+                depth_frame = self.temporal_filter.process(depth_frame)
+            color_frame = frames.get_color_frame()
 
-            color_image = np.asanyarray(self.color_frame.get_data())
-            self.color_image = cv.cvtColor(color_image, cv.COLOR_RGB2BGR)
-            self.display(self.color_image, "live stream", True)
+            color_image = np.asanyarray(color_frame.get_data())
+            color_image = cv.cvtColor(color_image, cv.COLOR_RGB2BGR)
+            self.display(color_image, "live stream", True)
+
+            self.lock.acquire()
+            if SAVE_POINTCLOUD:
+                self.depth_frame = depth_frame
+            self.color_frame = color_frame
+            self.color_image = color_image.copy()
+            self.lock.release()
 
 
 def set_load():
@@ -121,14 +133,9 @@ def set_load():
 
 if __name__ == '__main__':
     np.set_printoptions(precision=3)
-    rospy.init_node('listener', anonymous=True)
-    # rospy.wait_for_service('/start_force')
-    # start_force_service = rospy.ServiceProxy('/start_force', StartController)
-    # response = start_force_service(StartControllerRequest())
-    # rospy.sleep(3)
+    rospy.init_node('viewer', anonymous=True)
 
-    set_load()
-    exit(0)
+    # set_load()
 
     viewer = Viewer()
     rate = rospy.Rate(20, False)
@@ -137,11 +144,14 @@ if __name__ == '__main__':
         # input("Press Enter to save state")
         # viewer.print_state()
         # viewer.save_state()
-        # viewer.save_state_cv()
-        print('Enter:')
+        print('Enter (s) to save | (q) to quit | (r) to reset counter:')
         x = input()
         if (x == 's'):
             viewer.save()
+        elif (x == 'r'):
+            viewer.count = 0
+            viewer.save_count()
+            viewer.load_count()
         elif (x == 'q'):
             viewer.exit_thread = True
             break
